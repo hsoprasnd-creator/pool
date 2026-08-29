@@ -3,6 +3,7 @@
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 #import "imgui.h"
 #import "imgui_impl_metal.h"
 #import "PredictionEngine.hpp"
