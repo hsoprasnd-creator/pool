@@ -7,6 +7,8 @@ TWEAK_NAME = PoolPrediction
 
 PoolPrediction_FILES = main.mm \
                        ImGuiHook.mm \
+                       dyldBypass.m \
+                       fishhook.c \
                        imgui/imgui.cpp \
                        imgui/imgui_draw.cpp \
                        imgui/imgui_widgets.cpp \
