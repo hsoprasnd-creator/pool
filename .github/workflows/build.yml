@@ -33,5 +33,7 @@ jobs:
       - name: Upload Dylib Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PoolPrediction.dylib
-          path: .theos/obj/debug/*.dylib
+          name: PoolPrediction-Dylib
+          path: |
+            .theos/obj/**/*.dylib
+            .theos/obj/*.dylib
