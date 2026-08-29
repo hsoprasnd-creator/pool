@@ -3,6 +3,7 @@
 #include <mach/vm_map.h>
 #include <mach-o/dyld.h>
 #include <sys/mman.h>
+#include <libkern/OSCacheControl.h>
 #include <pthread.h>
 #include <mutex>
 #include <cstring>
@@ -43,8 +44,8 @@ namespace KittyMemory {
         
         memcpy(address, buffer, len);
         
-        // ARM64 instruction cache clear
-        __builtin___clear_cache((char *)address, (char *)address + len);
+        // Native iOS instruction cache invalidation
+        sys_icache_invalidate(address, len);
         return true;
     }
 
@@ -98,10 +99,10 @@ namespace KittyMemory {
         
         memcpy((char *)trampoline + 16, ret_code, 16);
         
-        // Clear instruction cache for trampoline
-        __builtin___clear_cache((char *)trampoline, (char *)trampoline + size);
+        // Invalidate cache for allocated trampoline
+        sys_icache_invalidate(trampoline, size);
         
-        // Write hook into target
+        // Write hook jump into target address
         uint8_t hook_code[16];
         memcpy(hook_code, shellcode, 8);
         uintptr_t target_addr = (uintptr_t)replacement;
