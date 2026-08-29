@@ -1,0 +1,8 @@
+Package: com.pool.prediction
+Name: PoolPrediction
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 8 Ball Pool Multi-Bounce Line Tweak
+Maintainer: Developer
+Author: Developer
+Section: Tweaks
