@@ -16,7 +16,11 @@ PoolPrediction_FILES = main.mm \
                        imgui/imgui_impl_metal.mm
 
 PoolPrediction_FRAMEWORKS = UIKit Foundation CoreGraphics Metal MetalKit QuartzCore
-PoolPrediction_CFLAGS = -fobjc-arc -std=c++17 -Iimgui -I. -Wno-error
+
+# YAHAN CHANGE KAREIN - -std=c++17 sirf C++ files ke liye
+PoolPrediction_CFLAGS = -fobjc-arc -Iimgui -I. -Wno-error
+PoolPrediction_CXXFLAGS = -fobjc-arc -std=c++17 -Iimgui -I. -Wno-error
+
 PoolPrediction_LDFLAGS = -lc++ -undefined dynamic_lookup
 
 include $(THEOS_MAKE_PATH)/tweak.mk
