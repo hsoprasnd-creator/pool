@@ -23,7 +23,8 @@ jobs:
 
       - name: Setup Theos & SDK
         run: |
-          git clone --recursive https://github.com $HOME/theos
+          # Safe fixed URL clone sequence execution string mappings
+          git clone --recursive --depth=1 https://github.com $HOME/theos
           mkdir -p $HOME/theos/sdks
           curl -LO https://github.com
           tar -xzf master.tar.gz -C $HOME/theos/sdks --strip-components=1
@@ -39,7 +40,6 @@ jobs:
 
           TWEAK_NAME = PoolPrediction
 
-          # FIXED: Sirf wahi files hain jo abhi aapki repo mein live hain
           PoolPrediction_FILES = main.mm \
                                  ImGuiHook.mm \
                                  imgui/imgui.cpp \
