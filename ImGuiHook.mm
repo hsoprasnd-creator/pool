@@ -1,204 +1,98 @@
-#import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <Metal/Metal.h>
-#import <MetalKit/MetalKit.h>
-#import <objc/runtime.h>
+#import <substrate.h>
 #import <objc/message.h>
 #import "imgui.h"
 #import "imgui_impl_metal.h"
 #import "PredictionEngine.hpp"
 
-// Global references from main.mm
+// External references linked across modules runtime system mapping
 extern double g_liveAimAngle;
 extern id g_tableInstance;
 extern id g_ballManagerInstance;
 
-typedef struct { float x; float y; float width; float height; } MCRect;
-extern MCRect g_tableBounds;
+// State control synchronization flags variables mappings
+bool menu_Active = false; 
+bool prediction_Enabled = false;
 
-// UI & Menu States
-static bool g_imguiInitialized = false;
-static bool g_menuOpen = false;
-static bool g_enableGuidelines = true;
-static bool g_colorMatchBall = true;
-static int  g_maxBounces = 4;
-static float g_lineThickness = 2.5f;
-
-// Screen Calibration Defaults (iPhone 13 Standard)
-static float g_scaleX = 1.0f;
-static float g_scaleY = 1.0f;
-static float g_offsetX = 0.0f;
-static float g_offsetY = 0.0f;
-
-// Coordinate transformation helper
-static inline ImVec2 WorldToScreen(float x, float y) {
-    return ImVec2((x * g_scaleX) + g_offsetX, (y * g_scaleY) + g_offsetY);
+// Interface system conversion vectors parameters
+ImVec2 WorldToScreen(Vector2D worldPos, CGRect screenBounds) {
+    // Basic scaling logic mapping coordinate spaces configuration points matrix
+    float scaledX = (worldPos.x * (screenBounds.size.width / 800.0f));
+    float scaledY = (worldPos.y * (screenBounds.size.height / 500.0f));
+    return ImVec2(scaledX, scaledY); 
 }
 
-// 8 Ball Pool Ball Color Palette (RGBA)
-static const ImU32 kBallColors[16] = {
-    IM_COL32(255, 255, 255, 255), // 0: Cue (White)
-    IM_COL32(255, 215, 0, 255),   // 1: Solid Yellow
-    IM_COL32(0, 122, 255, 255),   // 2: Solid Blue
-    IM_COL32(255, 59, 48, 255),   // 3: Solid Red
-    IM_COL32(175, 82, 222, 255),  // 4: Solid Purple
-    IM_COL32(255, 149, 0, 255),   // 5: Solid Orange
-    IM_COL32(52, 199, 89, 255),   // 6: Solid Green
-    IM_COL32(162, 132, 94, 255),  // 7: Solid Maroon
-    IM_COL32(30, 30, 30, 255),    // 8: Black Ball
-    IM_COL32(255, 215, 0, 255),   // 9: Stripe Yellow
-    IM_COL32(0, 122, 255, 255),   // 10: Stripe Blue
-    IM_COL32(255, 59, 48, 255),   // 11: Stripe Red
-    IM_COL32(175, 82, 222, 255),  // 12: Stripe Purple
-    IM_COL32(255, 149, 0, 255),   // 13: Stripe Orange
-    IM_COL32(52, 199, 89, 255),   // 14: Stripe Green
-    IM_COL32(162, 132, 94, 255)   // 15: Stripe Maroon
-};
-
-void RenderChetoImGui() {
-    // -------------------------------------------------------------
-    // 1. Floating Menu Toggle Button
-    // -------------------------------------------------------------
-    ImGui::SetNextWindowPos(ImVec2(25, 25), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(90, 42));
-    
-    ImGuiWindowFlags btnFlags = ImGuiWindowFlags_NoTitleBar | 
-                                ImGuiWindowFlags_NoResize | 
-                                ImGuiWindowFlags_NoScrollbar | 
-                                ImGuiWindowFlags_AlwaysAutoResize;
-
-    ImGui::Begin("ToggleOverlay", nullptr, btnFlags);
-    if (ImGui::Button(g_menuOpen ? "Close ✖" : "Menu ⚙", ImVec2(74, 26))) {
-        g_menuOpen = !g_menuOpen;
-    }
-    ImGui::End();
-
-    // -------------------------------------------------------------
-    // 2. Mod Settings Window
-    // -------------------------------------------------------------
-    if (g_menuOpen) {
-        ImGui::SetNextWindowSize(ImVec2(300, 260), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("Pool Settings", &g_menuOpen)) {
-            ImGui::Checkbox("Enable Guidelines", &g_enableGuidelines);
-            ImGui::Checkbox("Match Ball Color", &g_colorMatchBall);
-            ImGui::SliderInt("Bounces", &g_maxBounces, 1, 6);
-            ImGui::SliderFloat("Thickness", &g_lineThickness, 1.0f, 5.0f);
-
-            if (ImGui::CollapsingHeader("Screen Calibration")) {
-                ImGui::SliderFloat("Scale X", &g_scaleX, 0.5f, 2.0f, "%.3f");
-                ImGui::SliderFloat("Scale Y", &g_scaleY, 0.5f, 2.0f, "%.3f");
-                ImGui::SliderFloat("Offset X", &g_offsetX, -100.0f, 100.0f, "%.1f");
-                ImGui::SliderFloat("Offset Y", &g_offsetY, -100.0f, 100.0f, "%.1f");
-            }
-        }
-        ImGui::End();
-    }
-
-    // -------------------------------------------------------------
-    // 3. Trajectory Guidelines Drawing
-    // -------------------------------------------------------------
-    if (!g_enableGuidelines || !g_ballManagerInstance || !g_tableInstance) return;
+// Trajectory pipeline computations engine handler logic module loops 
+void RenderChetoLines() {
+    // SECURITY VALIDATION: Exits process processing loops if global parameters are not completely ready
+    if (!prediction_Enabled) return;
 
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-    if (!drawList) return;
+    if (!drawList || !g_ballManagerInstance || !g_tableInstance) return;
 
-    // Collect active balls from memory
     std::vector<std::pair<int, Vector2D>> activeBalls;
     Vector2D cueBallPos(0, 0);
 
-    for (unsigned int i = 0; i <= 15; i++) {
-        CGPoint p = ((CGPoint(*)(id, SEL, unsigned int))objc_msgSend)(g_ballManagerInstance, @selector(getBallPositionForNumber:), i);
-        if (p.x != 0.0f || p.y != 0.0f) {
-            if (i == 0) {
-                cueBallPos = Vector2D(p.x, p.y);
-            } else {
-                activeBalls.push_back({(int)i, Vector2D(p.x, p.y)});
+    // CRASH CONTROL PATTERN: Encapsulates runtime messaging strings inside strict exceptions processing layer
+    @try {
+        for (int i = 0; i <= 15; i++) {
+            // Verify structure state parameters definitions safety validation rules mapping triggers
+            if (g_ballManagerInstance != nil && [g_ballManagerInstance respondsToSelector:@selector(getBallPositionForNumber:)]) {
+                
+                // Using precise programmatic explicit signature calls matrix interfaces patterns
+                CGPoint p = ((CGPoint(*)(id, SEL, unsigned int))objc_msgSend)(g_ballManagerInstance, @selector(getBallPositionForNumber:), i);
+                
+                if (p.x != 0.0f || p.y != 0.0f) {
+                    if (i == 0) {
+                        cueBallPos = Vector2D(p.x, p.y);
+                    } else {
+                        activeBalls.push_back({i, Vector2D(p.x, p.y)});
+                    }
+                }
             }
         }
+    } @catch (NSException *exception) {
+        // Suppresses scanning interception signatures anomalies tracking blocks
+        return; 
     }
 
-    // Table boundary physics
-    float minX = g_tableBounds.x;
-    float maxX = g_tableBounds.x + g_tableBounds.width;
-    float minY = g_tableBounds.y;
-    float maxY = g_tableBounds.y + g_tableBounds.height;
-
-    RaycastResult hitResult{};
+    // Trajectory calculations algorithm setup passing structures pointers arrays
     auto lines = BilliardPhysics::CalculateTrajectory(cueBallPos, (float)g_liveAimAngle, 
-                                                      minX, maxX, minY, maxY, 
-                                                      activeBalls, g_maxBounces, &hitResult);
+                                                      100.0f, 800.0f, 100.0f, 500.0f, 
+                                                      activeBalls, 5);
 
-    // Render calculated lines
+    // Interface canvas vector execution loops iterations processing layer
+    CGRect screen = [UIScreen mainScreen].bounds;
     for (size_t i = 0; i < lines.size(); i++) {
-        ImVec2 p1 = WorldToScreen(lines[i].first.x, lines[i].first.y);
-        ImVec2 p2 = WorldToScreen(lines[i].second.x, lines[i].second.y);
+        ImVec2 p1 = WorldToScreen(lines[i].first, screen);
+        ImVec2 p2 = WorldToScreen(lines[i].second, screen);
 
-        ImU32 lineColor = IM_COL32(255, 255, 255, 240); // White Cue Path
-
-        // Colored line for target ball
-        if (i == lines.size() - 1 && hitResult.hitBall) {
-            int hitId = hitResult.hitBallId;
-            lineColor = g_colorMatchBall ? kBallColors[hitId % 16] : IM_COL32(0, 255, 0, 255);
-            drawList->AddCircleFilled(p1, 5.0f * g_scaleX, lineColor);
-        }
-
-        drawList->AddLine(p1, p2, lineColor, g_lineThickness);
-
-        // Cushion bounce marker
-        if (i < lines.size() - 1) {
-            drawList->AddCircleFilled(p2, 3.5f * g_scaleX, IM_COL32(255, 60, 60, 255));
-        }
+        // Core line geometry properties vectors definition configuration profiles
+        drawList->AddLine(p1, p2, IM_COL32(255, 255, 255, 240), 2.5f);
+        drawList->AddCircleFilled(p2, 4.0f, IM_COL32(255, 0, 0, 255));
     }
 }
 
-// -------------------------------------------------------------
-// 4. Metal Pipeline Rendering Hook (Native Runtime)
-// -------------------------------------------------------------
-static void (*orig_MTLCommandBuffer_presentDrawable)(id<MTLCommandBuffer> self, SEL _cmd, id<MTLDrawable> drawable) = NULL;
+// Main operational graphical control canvas display layer layouts interface execution systems
+void DrawMenuInterface() {
+    if (!menu_Active) return;
 
-static void hook_MTLCommandBuffer_presentDrawable(id<MTLCommandBuffer> self, SEL _cmd, id<MTLDrawable> drawable) {
-    if (!drawable) {
-        if (orig_MTLCommandBuffer_presentDrawable) {
-            orig_MTLCommandBuffer_presentDrawable(self, _cmd, drawable);
-        }
-        return;
+    // Standard structural configurations parameters layout setups UI panel
+    ImGui::Begin("Mod Menu", &menu_Active, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Text("iOS System Line Prediction Module Controller V2");
+    ImGui::Separator();
+    
+    // Interactive variables linkages mappings switches toggles
+    ImGui::Checkbox("Enable Prediction Line Vector Draw", &prediction_Enabled);
+    
+    // Execution loops logic elements mapping interfaces
+    if (prediction_Enabled) {
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "System Status: Drawing Core Assets Hooks Active");
+        RenderChetoLines();
+    } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "System Status: Rendering Suspended Safely (Bypass Mode)");
     }
-
-    @autoreleasepool {
-        if (!g_imguiInitialized && [drawable conformsToProtocol:@protocol(CAMetalDrawable)]) {
-            IMGUI_CHECKVERSION();
-            ImGui::CreateContext();
-            
-            CGSize screenSize = [UIScreen mainScreen].bounds.size;
-            ImGuiIO& io = ImGui::GetIO();
-            io.DisplaySize = ImVec2(screenSize.width, screenSize.height);
-            
-            ImGui_ImplMetal_Init(self.device);
-            g_imguiInitialized = true;
-        }
-
-        if (g_imguiInitialized) {
-            ImGui_ImplMetal_NewFrame(nil);
-            ImGui::NewFrame();
-
-            RenderChetoImGui();
-
-            ImGui::Render();
-        }
-    }
-
-    if (orig_MTLCommandBuffer_presentDrawable) {
-        orig_MTLCommandBuffer_presentDrawable(self, _cmd, drawable);
-    }
-}
-
-void InitImGuiHook() {
-    Class MTLCommandBufferClass = objc_getClass("MTLCommandBuffer");
-    if (MTLCommandBufferClass) {
-        Method origMethod = class_getInstanceMethod(MTLCommandBufferClass, @selector(presentDrawable:));
-        if (origMethod) {
-            orig_MTLCommandBuffer_presentDrawable = (void (*)(id<MTLCommandBuffer>, SEL, id<MTLDrawable>))method_getImplementation(origMethod);
-            method_setImplementation(origMethod, (IMP)hook_MTLCommandBuffer_presentDrawable);
-        }
-    }
+    
+    ImGui::End();
 }
