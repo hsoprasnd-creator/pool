@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <objc/message.h>
 
 // Global hooks references
 double g_liveAimAngle = 0.0;
@@ -10,7 +11,7 @@ id __weak g_ballManagerInstance = nil;
 typedef struct { float x; float y; float width; float height; } MCRect;
 MCRect g_tableBounds = {100.0f, 100.0f, 700.0f, 400.0f};
 
-// Method Swizzling Helper (Substrate-Free Bypass)
+// Method Swizzling Helper
 static void SafeSwizzle(Class cls, SEL origSel, SEL newSel, IMP newImp, const char *types) {
     if (!cls) return;
     class_addMethod(cls, newSel, newImp, types);
@@ -26,7 +27,6 @@ static void swizzled_VisualCue_setAimAngle(id self, SEL _cmd, void *mcNumberPtr)
     if (mcNumberPtr != NULL) {
         g_liveAimAngle = *(double *)mcNumberPtr;
     }
-    // Call original implementation via renamed selector
     SEL origSel = @selector(swizzled_VisualCue_setAimAngle:);
     if ([self respondsToSelector:origSel]) {
         ((void(*)(id, SEL, void*))objc_msgSend)(self, origSel, mcNumberPtr);
@@ -59,7 +59,7 @@ static MCRect swizzled_Table_tableBounds(id self, SEL _cmd) {
 
 extern void InitImGuiHook();
 
-// Delayed initialization to let game load security checks first
+// Constructor
 __attribute__((constructor))
 static void InitPoolDylib() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
