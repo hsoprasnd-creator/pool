@@ -15,6 +15,7 @@ PoolPrediction_FILES = main.mm \
 
 PoolPrediction_FRAMEWORKS = UIKit Foundation CoreGraphics Metal MetalKit QuartzCore
 PoolPrediction_CFLAGS = -fobjc-arc -Iimgui -I. -Wno-error
-PoolPrediction_LDFLAGS = -undefined dynamic_lookup
+PoolPrediction_CXXFLAGS = -std=c++17 -fno-rtti -fno-exceptions -Iimgui -I.
+PoolPrediction_LDFLAGS = -lc++ -undefined dynamic_lookup
 
 include $(THEOS_MAKE_PATH)/tweak.mk
