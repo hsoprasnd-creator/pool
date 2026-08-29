@@ -5,21 +5,21 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = PoolPrediction
 
-PoolPrediction_FILES = main.mm \
-                       ImGuiHook.mm \
-                       dyldBypass.mm \
-                       fishhook.c \
-                       imgui/imgui.cpp \
-                       imgui/imgui_draw.cpp \
-                       imgui/imgui_widgets.cpp \
-                       imgui/imgui_tables.cpp \
+# Source files (all .c, .cpp, .m, .mm)
+PoolPrediction_FILES = main.mm ImGuiHook.mm fishhook.c \
+                       imgui/imgui.cpp imgui/imgui_draw.cpp \
+                       imgui/imgui_tables.cpp imgui/imgui_widgets.cpp \
                        imgui/imgui_impl_metal.mm
 
-PoolPrediction_FRAMEWORKS = UIKit Foundation CoreGraphics Metal MetalKit QuartzCore
+# Include paths
+PoolPrediction_INC = -I./imgui -I.
 
-PoolPrediction_CFLAGS = -fobjc-arc -Iimgui -I. -Wno-error
-PoolPrediction_CXXFLAGS = -fobjc-arc -std=gnu++17 -Iimgui -I. -Wno-error
+# Compiler Flags: Enable C++17 for Modern ImGui support
+PoolPrediction_CFLAGS += -fobjc-arc $(PoolPrediction_INC)
+PoolPrediction_CXXFLAGS += -std=c++17 -fno-rtti $(PoolPrediction_INC)
+PoolPrediction_OBJCXXFLAGS += -std=c++17 -fobjc-arc $(PoolPrediction_INC)
 
-PoolPrediction_LDFLAGS = -lc++ -undefined dynamic_lookup
+# Required iOS Frameworks
+PoolPrediction_FRAMEWORKS = UIKit Foundation Metal MetalKit QuartzCore
 
 include $(THEOS_MAKE_PATH)/tweak.mk
