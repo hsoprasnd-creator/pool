@@ -2,12 +2,12 @@
 #import <UIKit/UIKit.h>
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
-#import <substrate.h>
+#import <objc/runtime.h>
 #import "imgui.h"
 #import "imgui_impl_metal.h"
 #import "PredictionEngine.hpp"
 
-// Global hooks references from main.mm
+// Global references from main.mm
 extern double g_liveAimAngle;
 extern id g_tableInstance;
 extern id g_ballManagerInstance;
@@ -54,7 +54,6 @@ static const ImU32 kBallColors[16] = {
     IM_COL32(162, 132, 94, 255)   // 15: Stripe Maroon
 };
 
-// Main Drawing and ImGui Loop
 void RenderChetoImGui() {
     // -------------------------------------------------------------
     // 1. Floating Menu Toggle Button
@@ -74,11 +73,11 @@ void RenderChetoImGui() {
     ImGui::End();
 
     // -------------------------------------------------------------
-    // 2. Mod Settings Window (Shown when toggled ON)
+    // 2. Mod Settings Window
     // -------------------------------------------------------------
     if (g_menuOpen) {
         ImGui::SetNextWindowSize(ImVec2(300, 260), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("Pool Cheto Settings", &g_menuOpen)) {
+        if (ImGui::Begin("Pool Settings", &g_menuOpen)) {
             ImGui::Checkbox("Enable Guidelines", &g_enableGuidelines);
             ImGui::Checkbox("Match Ball Color", &g_colorMatchBall);
             ImGui::SliderInt("Bounces", &g_maxBounces, 1, 6);
@@ -102,7 +101,7 @@ void RenderChetoImGui() {
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
     if (!drawList) return;
 
-    // Collect all active balls
+    // Collect active balls from memory
     std::vector<std::pair<int, Vector2D>> activeBalls;
     Vector2D cueBallPos(0, 0);
 
@@ -117,7 +116,7 @@ void RenderChetoImGui() {
         }
     }
 
-    // Table boundaries
+    // Table boundary physics
     float minX = g_tableBounds.x;
     float maxX = g_tableBounds.x + g_tableBounds.width;
     float minY = g_tableBounds.y;
@@ -133,13 +132,13 @@ void RenderChetoImGui() {
         ImVec2 p1 = WorldToScreen(lines[i].first.x, lines[i].first.y);
         ImVec2 p2 = WorldToScreen(lines[i].second.x, lines[i].second.y);
 
-        ImU32 lineColor = IM_COL32(255, 255, 255, 240); // White for Cue Path
+        ImU32 lineColor = IM_COL32(255, 255, 255, 240); // White Cue Path
 
-        // Target Ball Trajectory
+        // Colored line for target ball
         if (i == lines.size() - 1 && hitResult.hitBall) {
             int hitId = hitResult.hitBallId;
             lineColor = g_colorMatchBall ? kBallColors[hitId % 16] : IM_COL32(0, 255, 0, 255);
-            drawList->AddCircleFilled(p1, 5.0f * g_scaleX, lineColor); // Target impact point
+            drawList->AddCircleFilled(p1, 5.0f * g_scaleX, lineColor);
         }
 
         drawList->AddLine(p1, p2, lineColor, g_lineThickness);
@@ -152,12 +151,15 @@ void RenderChetoImGui() {
 }
 
 // -------------------------------------------------------------
-// 4. Metal Hook Implementation
+// 4. Metal Pipeline Rendering Hook (Native Runtime)
 // -------------------------------------------------------------
-static void (*orig_MTLCommandBuffer_presentDrawable)(id<MTLCommandBuffer> self, SEL _cmd, id<MTLDrawable> drawable);
+static void (*orig_MTLCommandBuffer_presentDrawable)(id<MTLCommandBuffer> self, SEL _cmd, id<MTLDrawable> drawable) = NULL;
+
 static void hook_MTLCommandBuffer_presentDrawable(id<MTLCommandBuffer> self, SEL _cmd, id<MTLDrawable> drawable) {
     if (!drawable) {
-        orig_MTLCommandBuffer_presentDrawable(self, _cmd, drawable);
+        if (orig_MTLCommandBuffer_presentDrawable) {
+            orig_MTLCommandBuffer_presentDrawable(self, _cmd, drawable);
+        }
         return;
     }
 
@@ -184,15 +186,18 @@ static void hook_MTLCommandBuffer_presentDrawable(id<MTLCommandBuffer> self, SEL
         }
     }
 
-    orig_MTLCommandBuffer_presentDrawable(self, _cmd, drawable);
+    if (orig_MTLCommandBuffer_presentDrawable) {
+        orig_MTLCommandBuffer_presentDrawable(self, _cmd, drawable);
+    }
 }
 
 void InitImGuiHook() {
     Class MTLCommandBufferClass = objc_getClass("MTLCommandBuffer");
     if (MTLCommandBufferClass) {
-        MSHookMessageEx(MTLCommandBufferClass, 
-                        @selector(presentDrawable:), 
-                        (IMP)hook_MTLCommandBuffer_presentDrawable, 
-                        (IMP*)&orig_MTLCommandBuffer_presentDrawable);
+        Method origMethod = class_getInstanceMethod(MTLCommandBufferClass, @selector(presentDrawable:));
+        if (origMethod) {
+            orig_MTLCommandBuffer_presentDrawable = (void (*)(id<MTLCommandBuffer>, SEL, id<MTLDrawable>))method_getImplementation(origMethod);
+            method_setImplementation(origMethod, (IMP)hook_MTLCommandBuffer_presentDrawable);
+        }
     }
 }
