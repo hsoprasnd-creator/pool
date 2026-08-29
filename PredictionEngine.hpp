@@ -30,9 +30,8 @@ struct RaycastResult {
 
 class BilliardPhysics {
 public:
-    static constexpr float BALL_RADIUS = 15.0f; // Game ki ball radius units me adjust karein
+    static constexpr float BALL_RADIUS = 15.0f;
 
-    // 1. Ray vs Table Cushion Check
     static bool RaycastCushion(const Vector2D& origin, const Vector2D& dir, 
                                float minX, float maxX, float minY, float maxY, 
                                Vector2D& outHit, Vector2D& outReflect) 
@@ -40,22 +39,18 @@ public:
         float tMin = 1e9f;
         Vector2D bestNormal(0, 0);
 
-        // Right Wall (maxX)
         if (dir.x > 0) {
             float t = (maxX - origin.x) / dir.x;
             if (t > 0.01f && t < tMin) { tMin = t; bestNormal = Vector2D(-1, 0); }
         }
-        // Left Wall (minX)
         if (dir.x < 0) {
             float t = (minX - origin.x) / dir.x;
             if (t > 0.01f && t < tMin) { tMin = t; bestNormal = Vector2D(1, 0); }
         }
-        // Top Wall (maxY)
         if (dir.y > 0) {
             float t = (maxY - origin.y) / dir.y;
             if (t > 0.01f && t < tMin) { tMin = t; bestNormal = Vector2D(0, -1); }
         }
-        // Bottom Wall (minY)
         if (dir.y < 0) {
             float t = (minY - origin.y) / dir.y;
             if (t > 0.01f && t < tMin) { tMin = t; bestNormal = Vector2D(0, 1); }
@@ -63,14 +58,12 @@ public:
 
         if (tMin < 1e8f) {
             outHit = origin + dir * tMin;
-            // Vector Reflection: R = V - 2(V·N)N
             outReflect = dir - bestNormal * (2.0f * dir.dot(bestNormal));
             return true;
         }
         return false;
     }
 
-    // 2. Ray vs Target Ball Collision Check
     static bool RaycastBall(const Vector2D& origin, const Vector2D& dir, 
                             const std::vector<std::pair<int, Vector2D>>& targetBalls, 
                             RaycastResult& result) 
@@ -83,7 +76,7 @@ public:
             Vector2D oc = ballPos - origin;
             float proj = oc.dot(dir);
 
-            if (proj < 0) continue; // Piche hai ball
+            if (proj < 0) continue;
 
             float perpDistSq = oc.lengthSq() - (proj * proj);
             float collisionRadius = 2.0f * BALL_RADIUS;
@@ -99,11 +92,8 @@ public:
                     result.hitBallId = target.first;
                     result.hitPoint = origin + dir * t;
                     
-                    // Target ball collision normal aur directions
                     Vector2D impactNormal = (ballPos - result.hitPoint).normalized();
                     result.targetBallDir = impactNormal;
-                    
-                    // Cue ball deflection (90-degree tangent)
                     Vector2D tangent(-impactNormal.y, impactNormal.x);
                     result.reflectDir = tangent * dir.dot(tangent);
                 }
@@ -112,16 +102,17 @@ public:
         return found;
     }
 
-    // 3. Multi-Bounce Loop (Calculate Full Path)
     static std::vector<std::pair<Vector2D, Vector2D>> CalculateTrajectory(
         Vector2D cuePos, float aimAngle, 
         float minX, float maxX, float minY, float maxY,
         const std::vector<std::pair<int, Vector2D>>& activeBalls,
-        int maxBounces = 5) 
+        int maxBounces,
+        RaycastResult* outBallHit) 
     {
         std::vector<std::pair<Vector2D, Vector2D>> lineSegments;
         Vector2D currentOrigin = cuePos;
         Vector2D currentDir(std::cos(aimAngle), std::sin(aimAngle));
+        if (outBallHit) outBallHit->hitBall = false;
 
         for (int i = 0; i < maxBounces; i++) {
             RaycastResult ballHit{};
@@ -130,20 +121,16 @@ public:
             Vector2D wallHit, wallReflect;
             bool hitWall = RaycastCushion(currentOrigin, currentDir, minX, maxX, minY, maxY, wallHit, wallReflect);
 
-            // Check kis point par pehle hit hua (Ball ya Wall)
             float distToBall = hitTarget ? (ballHit.hitPoint - currentOrigin).length() : 1e9f;
             float distToWall = hitWall ? (wallHit - currentOrigin).length() : 1e9f;
 
             if (hitTarget && distToBall < distToWall) {
-                // Ball se takraya
                 lineSegments.push_back({currentOrigin, ballHit.hitPoint});
-                
-                // Target ball ka outgoing path draw karne ke liye
-                Vector2D targetEnd = ballHit.hitPoint + ballHit.targetBallDir * 300.0f;
+                Vector2D targetEnd = ballHit.hitPoint + ballHit.targetBallDir * 350.0f;
                 lineSegments.push_back({ballHit.hitPoint, targetEnd});
-                break; // Collision ke baad main cue line stop
+                if (outBallHit) *outBallHit = ballHit;
+                break;
             } else if (hitWall) {
-                // Cushion se takraya (Bounce)
                 lineSegments.push_back({currentOrigin, wallHit});
                 currentOrigin = wallHit;
                 currentDir = wallReflect.normalized();
