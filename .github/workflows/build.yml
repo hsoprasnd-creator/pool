@@ -2,14 +2,14 @@ name: Build iOS Dylib
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
@@ -17,60 +17,28 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Build Dependencies
-        run: |
-          brew install ldid
-
       - name: Setup Theos & SDK
         run: |
-          # Clone Theos repository
-          git clone --recursive --depth=1 https://github.com/theos/theos.git $HOME/theos
-          
-          # Setup SDK
-          mkdir -p $HOME/theos/sdks
-          curl -LO https://github.com/theos/sdks/archive/refs/heads/master.tar.gz
-          tar -xzf master.tar.gz -C $HOME/theos/sdks --strip-components=1
-          rm master.tar.gz
-          
-          # Persist THEOS environment variable across steps
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-
-      - name: Write Makefile
-        run: |
-          cat << 'EOF' > Makefile
-          TARGET := iphone:clang:latest:14.0
-          ARCHS := arm64
-
-          include $(THEOS)/makefiles/common.mk
-
-          TWEAK_NAME = PoolPrediction
-
-          PoolPrediction_FILES = main.mm \
-                                 ImGuiHook.mm \
-                                 imgui/imgui.cpp \
-                                 imgui/imgui_draw.cpp \
-                                 imgui/imgui_tables.cpp \
-                                 imgui/imgui_widgets.cpp \
-                                 imgui/imgui_impl_metal.mm
-
-          PoolPrediction_CFLAGS += -fobjc-arc -I./imgui -I.
-          PoolPrediction_CCFLAGS += -std=c++17 -stdlib=libc++ -I./imgui -I.
-          PoolPrediction_CXXFLAGS += -std=c++17 -stdlib=libc++ -I./imgui -I.
-          PoolPrediction_OBJCXXFLAGS += -std=c++17 -stdlib=libc++ -fobjc-arc -I./imgui -I.
-
-          PoolPrediction_FRAMEWORKS = UIKit Foundation Metal MetalKit QuartzCore CoreGraphics
-
-          include $(THEOS_MAKE_PATH)/tweak.mk
-          EOF
+          git clone --recursive https://github.com/theos/theos.git ~/theos
+          echo "THEOS=~/theos" >> $GITHUB_ENV
+          curl -LO https://github.com/theos/sdks/archive/master.zip
+          unzip -q master.zip
+          mkdir -p ~/theos/sdks
+          cp -r sdks-master/* ~/theos/sdks/
+          rm -rf master.zip sdks-master
 
       - name: Compile Dylib
         run: |
+          export THEOS=~/theos
           make clean
-          make all FINALPACKAGE=1
+          make package FINALPACKAGE=1
 
       - name: Upload Dylib Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PoolPrediction-Dylib
-          path: .theos/obj/debug/*.dylib
+          path: |
+            .theos/obj/debug/*.dylib
+            .theos/obj/*.dylib
+            packages/*.deb
           if-no-files-found: warn
