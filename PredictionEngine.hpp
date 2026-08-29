@@ -66,7 +66,8 @@ public:
 
     static bool RaycastBall(const Vector2D& origin, const Vector2D& dir, 
                             const std::vector<std::pair<int, Vector2D>>& targetBalls, 
-                            RaycastResult& result) 
+                            RaycastResult& result,
+                            float ballRadius = BALL_RADIUS) 
     {
         float closestDist = 1e9f;
         bool found = false;
@@ -79,7 +80,7 @@ public:
             if (proj < 0) continue;
 
             float perpDistSq = oc.lengthSq() - (proj * proj);
-            float collisionRadius = 2.0f * BALL_RADIUS;
+            float collisionRadius = 2.0f * ballRadius;
 
             if (perpDistSq <= (collisionRadius * collisionRadius)) {
                 float d = std::sqrt((collisionRadius * collisionRadius) - perpDistSq);
@@ -104,10 +105,11 @@ public:
 
     static std::vector<std::pair<Vector2D, Vector2D>> CalculateTrajectory(
         Vector2D cuePos, float aimAngle, 
-        float minX, float maxX, float minY, float maxY,
-        const std::vector<std::pair<int, Vector2D>>& activeBalls,
-        int maxBounces,
-        RaycastResult* outBallHit) 
+        float minX, float maxX, float minY, float maxY, 
+        const std::vector<std::pair<int, Vector2D>>& activeBalls, 
+        int maxBounces, 
+        RaycastResult* outBallHit,
+        float ballRadius = BALL_RADIUS) 
     {
         std::vector<std::pair<Vector2D, Vector2D>> lineSegments;
         Vector2D currentOrigin = cuePos;
@@ -116,7 +118,7 @@ public:
 
         for (int i = 0; i < maxBounces; i++) {
             RaycastResult ballHit{};
-            bool hitTarget = RaycastBall(currentOrigin, currentDir, activeBalls, ballHit);
+            bool hitTarget = RaycastBall(currentOrigin, currentDir, activeBalls, ballHit, ballRadius);
 
             Vector2D wallHit, wallReflect;
             bool hitWall = RaycastCushion(currentOrigin, currentDir, minX, maxX, minY, maxY, wallHit, wallReflect);
