@@ -3,7 +3,7 @@
 #import <CoreGraphics/CoreGraphics.h>
 
 // KittyMemory header (path aapke hisaab se)
-#include "KittyMemory/KittyMemory.hpp"
+#include "src/KittyMemory/KittyMemory.hpp"
 
 // ============================================================
 //  OFFSETS (EXACT VALUES FROM GAME BINARY)
