@@ -20,6 +20,7 @@ jobs:
       - name: Setup Theos & SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          rm -rf $HOME/theos/sdks
           git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/arx8x/iOS-SDKS.git $HOME/theos/sdks
           cd $HOME/theos/sdks && git sparse-checkout set iPhoneOS16.5.sdk && git checkout
 
