@@ -17,6 +17,10 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Build Dependencies
+        run: |
+          brew install ldid
+
       - name: Setup Theos & SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
@@ -60,4 +64,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PoolPrediction-Dylib
-          path: .theos/obj/arm64/*.dylib
+          path: .theos/obj/*.dylib
