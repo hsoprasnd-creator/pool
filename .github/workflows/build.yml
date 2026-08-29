@@ -20,25 +20,13 @@ jobs:
       - name: Setup Theos & SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          
-          # Direct SDK setup without git auth issues
           mkdir -p $HOME/theos/sdks
           curl -LO https://github.com/theos/sdks/archive/master.tar.gz
           tar -xzf master.tar.gz -C $HOME/theos/sdks --strip-components=1
           rm master.tar.gz
 
-      - name: Auto-Configure Makefile & Headers
+      - name: Write Makefile
         run: |
-          # Clean default imconfig.h
-          cat << 'EOF' > imgui/imconfig.h
-          #pragma once
-          #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
-          #define IMGUI_DISABLE_OBSOLETE_KEYIO
-          #define IMGUI_DISABLE_DEMO_WINDOWS
-          #include <stdint.h>
-          EOF
-
-          # Force C++17 flags inside Makefile
           cat << 'EOF' > Makefile
           TARGET := iphone:clang:latest:14.0
           ARCHS := arm64
@@ -52,9 +40,10 @@ jobs:
                                  imgui/imgui_tables.cpp imgui/imgui_widgets.cpp \
                                  imgui/imgui_impl_metal.mm
 
-          ADDITIONAL_CFLAGS += -I./imgui -I. -fobjc-arc
-          ADDITIONAL_CXXFLAGS += -std=c++17 -fno-rtti -I./imgui -I.
-          ADDITIONAL_OBJCXXFLAGS += -std=c++17 -fobjc-arc -I./imgui -I.
+          PoolPrediction_CFLAGS += -fobjc-arc -I./imgui -I.
+          PoolPrediction_CCFLAGS += -std=c++17 -stdlib=libc++ -I./imgui -I.
+          PoolPrediction_CXXFLAGS += -std=c++17 -stdlib=libc++ -I./imgui -I.
+          PoolPrediction_OBJCXXFLAGS += -std=c++17 -stdlib=libc++ -fobjc-arc -I./imgui -I.
 
           PoolPrediction_FRAMEWORKS = UIKit Foundation Metal MetalKit QuartzCore
 
