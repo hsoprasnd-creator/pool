@@ -2,7 +2,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-// KittyMemory header
+// KittyMemory header (path aapke hisaab se)
 #include "KittyMemory/KittyMemory.hpp"
 
 // ============================================================
@@ -20,16 +20,17 @@ id g_tableInstance = nil;
 id g_ballManagerInstance = nil;
 
 // ============================================================
-//  ORIGINAL FUNCTION POINTERS
+//  ORIGINAL FUNCTION POINTERS (global taaki ImGuiHook use kar sake)
 // ============================================================
-static void (*orig_VisualCue_setAimAngle)(id self, SEL _cmd, void *mcNumberPtr);
-static CGPoint (*orig_BallManager_getBallPositionForNumber)(id self, SEL _cmd, unsigned int num);
+void (*orig_VisualCue_setAimAngle)(id self, SEL _cmd, void *mcNumberPtr);
+CGPoint (*orig_BallManager_getBallPositionForNumber)(id self, SEL _cmd, unsigned int num) = NULL;   // <-- Global, non-static
+MCRect (*orig_Table_tableBounds)(id self, SEL _cmd);
 
+// MCRect structure (as originally defined)
 typedef struct { float x; float y; float width; float height; } MCRect;
-static MCRect (*orig_Table_tableBounds)(id self, SEL _cmd);
 
 // ============================================================
-//  HOOK FUNCTIONS
+//  HOOK FUNCTIONS (Replacement IMPs)
 // ============================================================
 static void hook_VisualCue_setAimAngle(id self, SEL _cmd, void *mcNumberPtr) {
     if (mcNumberPtr) {
@@ -49,7 +50,7 @@ static MCRect hook_Table_tableBounds(id self, SEL _cmd) {
 }
 
 // ============================================================
-//  HOOK INJECTION (KittyMemory)
+//  HOOK INJECTION (Using KittyMemory)
 // ============================================================
 void InjectPoolHooksSafely() {
     NSLog(@"[PoolPrediction] Starting delayed hook injection with KittyMemory...");
@@ -97,14 +98,14 @@ void InjectPoolHooksSafely() {
 }
 
 // ============================================================
-//  DYLIB INITIALIZATION (Delayed Bypass)
+//  DYLIB INITIALIZATION (Delayed to bypass anti-cheat)
 // ============================================================
 __attribute__((constructor))
 static void InitPoolDylib() {
     NSLog(@"[PoolPrediction] Dylib Injected. Waiting for security checks to clear...");
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        [NSThread sleepForTimeInterval:12.0];
+        [NSThread sleepForTimeInterval:12.0];  // Anti-cheat bypass delay
 
         dispatch_async(dispatch_get_main_queue(), ^{
             @try {
