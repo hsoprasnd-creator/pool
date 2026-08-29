@@ -7,7 +7,7 @@ TWEAK_NAME = PoolPrediction
 
 PoolPrediction_FILES = main.mm \
                        ImGuiHook.mm \
-                       dyldBypass.m \
+                       dyldBypass.mm \
                        fishhook.c \
                        imgui/imgui.cpp \
                        imgui/imgui_draw.cpp \
@@ -17,9 +17,8 @@ PoolPrediction_FILES = main.mm \
 
 PoolPrediction_FRAMEWORKS = UIKit Foundation CoreGraphics Metal MetalKit QuartzCore
 
-# YAHAN CHANGE KAREIN - -std=c++17 sirf C++ files ke liye
 PoolPrediction_CFLAGS = -fobjc-arc -Iimgui -I. -Wno-error
-PoolPrediction_CXXFLAGS = -fobjc-arc -std=c++17 -Iimgui -I. -Wno-error
+PoolPrediction_CXXFLAGS = -fobjc-arc -std=gnu++17 -Iimgui -I. -Wno-error
 
 PoolPrediction_LDFLAGS = -lc++ -undefined dynamic_lookup
 
