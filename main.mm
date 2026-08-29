@@ -2,15 +2,15 @@
 #import <UIKit/UIKit.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-// KittyMemory header – path aapke project ke hisaab se adjust karein
+// KittyMemory header
 #include "KittyMemory/KittyMemory.hpp"
 
 // ============================================================
-//  OFFSETS – YAHAN PAR ASLI OFFSET DALEIN (game binary ke hisaab se)
+//  OFFSETS (EXACT VALUES FROM GAME BINARY)
 // ============================================================
-#define OFFSET_VISUALCUE_SET_AIMANGLE              0x00000000  // <-- Fill me
-#define OFFSET_BALLMANAGER_GETBALLPOSITIONFORNUMBER 0x00000000 // <-- Fill me
-#define OFFSET_TABLE_TABLEBOUNDS                   0x00000000  // <-- Fill me
+#define OFFSET_VISUALCUE_SET_AIMANGLE              0x1D1DA0
+#define OFFSET_BALLMANAGER_GETBALLPOSITIONFORNUMBER 0x9FDA4
+#define OFFSET_TABLE_TABLEBOUNDS                   0xA4024
 
 // ============================================================
 //  GLOBAL VARIABLES (Prediction Engine ke liye)
@@ -25,12 +25,11 @@ id g_ballManagerInstance = nil;
 static void (*orig_VisualCue_setAimAngle)(id self, SEL _cmd, void *mcNumberPtr);
 static CGPoint (*orig_BallManager_getBallPositionForNumber)(id self, SEL _cmd, unsigned int num);
 
-// MCRect structure (as defined originally)
 typedef struct { float x; float y; float width; float height; } MCRect;
 static MCRect (*orig_Table_tableBounds)(id self, SEL _cmd);
 
 // ============================================================
-//  HOOK FUNCTIONS (Replacement IMPs)
+//  HOOK FUNCTIONS
 // ============================================================
 static void hook_VisualCue_setAimAngle(id self, SEL _cmd, void *mcNumberPtr) {
     if (mcNumberPtr) {
@@ -50,7 +49,7 @@ static MCRect hook_Table_tableBounds(id self, SEL _cmd) {
 }
 
 // ============================================================
-//  HOOK INJECTION (Using KittyMemory)
+//  HOOK INJECTION (KittyMemory)
 // ============================================================
 void InjectPoolHooksSafely() {
     NSLog(@"[PoolPrediction] Starting delayed hook injection with KittyMemory...");
@@ -60,7 +59,7 @@ void InjectPoolHooksSafely() {
         NSLog(@"[PoolPrediction] Warning: getSlide returned 0, ASLR slide not available?");
     }
 
-    // 1. VisualCue::setAimAngle:
+    // 1. VisualCue::setAimAngle: (Offset: 0x1D1DA0)
     uintptr_t addrVisualCue = slide + OFFSET_VISUALCUE_SET_AIMANGLE;
     if (addrVisualCue) {
         if (KittyMemory::hookFunction((void*)addrVisualCue,
@@ -72,7 +71,7 @@ void InjectPoolHooksSafely() {
         }
     }
 
-    // 2. BallManager::getBallPositionForNumber:
+    // 2. BallManager::getBallPositionForNumber: (Offset: 0x9FDA4)
     uintptr_t addrBallManager = slide + OFFSET_BALLMANAGER_GETBALLPOSITIONFORNUMBER;
     if (addrBallManager) {
         if (KittyMemory::hookFunction((void*)addrBallManager,
@@ -84,7 +83,7 @@ void InjectPoolHooksSafely() {
         }
     }
 
-    // 3. Table::tableBounds
+    // 3. Table::tableBounds (Offset: 0xA4024)
     uintptr_t addrTable = slide + OFFSET_TABLE_TABLEBOUNDS;
     if (addrTable) {
         if (KittyMemory::hookFunction((void*)addrTable,
@@ -98,14 +97,14 @@ void InjectPoolHooksSafely() {
 }
 
 // ============================================================
-//  DYLIB INITIALIZATION (Delayed to bypass anti-cheat)
+//  DYLIB INITIALIZATION (Delayed Bypass)
 // ============================================================
 __attribute__((constructor))
 static void InitPoolDylib() {
     NSLog(@"[PoolPrediction] Dylib Injected. Waiting for security checks to clear...");
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        [NSThread sleepForTimeInterval:12.0];  // Anti-cheat bypass delay
+        [NSThread sleepForTimeInterval:12.0];
 
         dispatch_async(dispatch_get_main_queue(), ^{
             @try {
