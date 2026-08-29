@@ -23,9 +23,9 @@ jobs:
 
       - name: Setup Theos & SDK
         run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          git clone --recursive https://github.com $HOME/theos
           mkdir -p $HOME/theos/sdks
-          curl -LO https://github.com/theos/sdks/archive/master.tar.gz
+          curl -LO https://github.com
           tar -xzf master.tar.gz -C $HOME/theos/sdks --strip-components=1
           rm master.tar.gz
 
@@ -39,9 +39,13 @@ jobs:
 
           TWEAK_NAME = PoolPrediction
 
-          PoolPrediction_FILES = main.mm ImGuiHook.mm fishhook.c \
-                                 imgui/imgui.cpp imgui/imgui_draw.cpp \
-                                 imgui/imgui_tables.cpp imgui/imgui_widgets.cpp \
+          # FIXED: Sirf wahi files hain jo abhi aapki repo mein live hain
+          PoolPrediction_FILES = main.mm \
+                                 ImGuiHook.mm \
+                                 imgui/imgui.cpp \
+                                 imgui/imgui_draw.cpp \
+                                 imgui/imgui_tables.cpp \
+                                 imgui/imgui_widgets.cpp \
                                  imgui/imgui_impl_metal.mm
 
           PoolPrediction_CFLAGS += -fobjc-arc -I./imgui -I.
@@ -49,7 +53,7 @@ jobs:
           PoolPrediction_CXXFLAGS += -std=c++17 -stdlib=libc++ -I./imgui -I.
           PoolPrediction_OBJCXXFLAGS += -std=c++17 -stdlib=libc++ -fobjc-arc -I./imgui -I.
 
-          PoolPrediction_FRAMEWORKS = UIKit Foundation Metal MetalKit QuartzCore
+          PoolPrediction_FRAMEWORKS = UIKit Foundation Metal MetalKit QuartzCore CoreGraphics
 
           include $(THEOS_MAKE_PATH)/tweak.mk
           EOF
