@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <Metal/Metal.h>
-#import <objc/runtime.h>   // sirf sel_registerName ke liye, isko bhi avoid kar sakte hain but ok
+#import <objc/runtime.h>
 
 // ImGui headers
 #import "imgui.h"
@@ -8,8 +8,6 @@
 
 // Prediction engine
 #import "PredictionEngine.hpp"
-
-// KittyMemory se koi direct include nahi, bas original function pointer use karenge
 
 // ------------------------------------------------------------
 // Global variables linked from main.mm
@@ -19,10 +17,9 @@ extern id g_tableInstance;
 extern id g_ballManagerInstance;
 
 // Original function pointer for BallManager::getBallPositionForNumber:
-// Yeh main.mm mein global banaya gaya hai (static hataya)
 extern CGPoint (*orig_BallManager_getBallPositionForNumber)(id self, SEL _cmd, unsigned int num);
 
-// Static SEL for calling the original method (runtime registered, not @selector)
+// Static SEL for calling the original method
 static SEL sel_getBallPositionForNumber = nil;
 
 // ------------------------------------------------------------
@@ -41,7 +38,7 @@ ImVec2 WorldToScreen(Vector2D worldPos, CGRect screenBounds) {
 }
 
 // ------------------------------------------------------------
-// Trajectory rendering (now uses direct function pointer, no objc_msgSend)
+// Trajectory rendering
 // ------------------------------------------------------------
 void RenderChetoLines() {
     if (!prediction_Enabled) return;
@@ -57,7 +54,7 @@ void RenderChetoLines() {
     std::vector<std::pair<int, Vector2D>> activeBalls;
     Vector2D cueBallPos(0, 0);
 
-    // Directly call original function – no @selector, no objc_msgSend
+    // Directly call original function
     for (int i = 0; i <= 15; i++) {
         if (g_ballManagerInstance != nil && orig_BallManager_getBallPositionForNumber) {
             CGPoint p = orig_BallManager_getBallPositionForNumber(g_ballManagerInstance, sel_getBallPositionForNumber, i);
@@ -71,9 +68,11 @@ void RenderChetoLines() {
         }
     }
 
-    if (activeBalls.empty()) return; // no balls to predict
+    if (activeBalls.empty()) return;
 
     float ballRadius = 10.0f;
+    RaycastResult hitResult{};
+
     auto lines = BilliardPhysics::CalculateTrajectory(
         cueBallPos,
         (float)g_liveAimAngle,
@@ -83,6 +82,7 @@ void RenderChetoLines() {
         500.0f,
         activeBalls,
         5,
+        &hitResult,
         ballRadius
     );
 
