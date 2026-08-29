@@ -12,14 +12,14 @@ extern id g_tableInstance;
 extern id g_ballManagerInstance;
 
 // State control synchronization flags
-bool menu_Active = false;
+bool menu_Active = false; 
 bool prediction_Enabled = false;
 
 // Coordinate transformation helper
 ImVec2 WorldToScreen(Vector2D worldPos, CGRect screenBounds) {
     float scaledX = (worldPos.x * (screenBounds.size.width / 800.0f));
     float scaledY = (worldPos.y * (screenBounds.size.height / 500.0f));
-    return ImVec2(scaledX, scaledY);
+    return ImVec2(scaledX, scaledY); 
 }
 
 // Trajectory pipeline computations engine handler
@@ -47,10 +47,10 @@ void RenderChetoLines() {
             }
         }
     } @catch (NSException *exception) {
-        return;
+        return; 
     }
 
-    // Updated with 9 arguments (added ball radius / cushion offset parameter)
+    // Correct argument ordering: activeBalls is 7th, 5 is 8th, ballRadius is 9th
     float ballRadius = 10.0f;
     auto lines = BilliardPhysics::CalculateTrajectory(
         cueBallPos, 
@@ -59,9 +59,9 @@ void RenderChetoLines() {
         800.0f, 
         100.0f, 
         500.0f, 
-        ballRadius, 
         activeBalls, 
-        5
+        5, 
+        ballRadius
     );
 
     // Render trajectory paths
@@ -82,15 +82,15 @@ void DrawMenuInterface() {
     ImGui::Begin("Mod Menu", &menu_Active, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("iOS System Line Prediction Module Controller V2");
     ImGui::Separator();
-
+    
     ImGui::Checkbox("Enable Prediction Line Vector Draw", &prediction_Enabled);
-
+    
     if (prediction_Enabled) {
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "System Status: Drawing Core Assets Hooks Active");
         RenderChetoLines();
     } else {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "System Status: Rendering Suspended Safely (Bypass Mode)");
     }
-
+    
     ImGui::End();
 }
