@@ -1,67 +1,66 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#import <CoreGraphics/CoreGraphics.h>
 #import <objc/runtime.h>
 #import <substrate.h>
 
-// Global variables export (Prediction Engine ke liye)
+// Safe Global references
 double g_liveAimAngle = 0.0;
-id g_tableInstance = nil;
-id g_ballManagerInstance = nil;
+id __weak g_tableInstance = nil;
+id __weak g_ballManagerInstance = nil;
 
-// 1. Hook VisualCue setAimAngle:
+typedef struct { float x; float y; float width; float height; } MCRect;
+MCRect g_tableBounds = {100.0f, 100.0f, 700.0f, 400.0f};
+
+// 1. Safe Hook AimAngle
 static void (*orig_VisualCue_setAimAngle)(id self, SEL _cmd, void *mcNumberPtr);
 static void hook_VisualCue_setAimAngle(id self, SEL _cmd, void *mcNumberPtr) {
-    if (mcNumberPtr) {
+    if (mcNumberPtr != NULL) {
         g_liveAimAngle = *(double *)mcNumberPtr;
     }
     orig_VisualCue_setAimAngle(self, _cmd, mcNumberPtr);
 }
 
-// 2. Hook BallManager getBallPositionForNumber:
+// 2. Safe Hook BallManager
 static CGPoint (*orig_BallManager_getBallPositionForNumber)(id self, SEL _cmd, unsigned int num);
 static CGPoint hook_BallManager_getBallPositionForNumber(id self, SEL _cmd, unsigned int num) {
-    g_ballManagerInstance = self;
+    if (self) {
+        g_ballManagerInstance = self;
+    }
     return orig_BallManager_getBallPositionForNumber(self, _cmd, num);
 }
 
-// 3. Hook Table tableBounds
-typedef struct { float x; float y; float width; float height; } MCRect;
+// 3. Safe Hook Table Bounds
 static MCRect (*orig_Table_tableBounds)(id self, SEL _cmd);
 static MCRect hook_Table_tableBounds(id self, SEL _cmd) {
-    g_tableInstance = self;
-    return orig_Table_tableBounds(self, _cmd);
+    if (self) {
+        g_tableInstance = self;
+        g_tableBounds = orig_Table_tableBounds(self, _cmd);
+    }
+    return g_tableBounds;
 }
 
-// 4. Initialize All Hooks on Dylib Load
+// External hook from ImGuiHook.mm
+extern void InitImGuiHook();
+
+// Constructor with Safe Class Checking
 __attribute__((constructor))
 static void InitPoolDylib() {
-    NSLog(@"[PoolPrediction] Dylib Injected Successfully!");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        Class VisualCueClass = objc_getClass("VisualCue");
+        if (VisualCueClass) {
+            MSHookMessageEx(VisualCueClass, @selector(setAimAngle:), (IMP)hook_VisualCue_setAimAngle, (IMP*)&orig_VisualCue_setAimAngle);
+        }
 
-    // VisualCue Hook
-    Class VisualCueClass = objc_getClass("VisualCue");
-    if (VisualCueClass) {
-        MSHookMessageEx(VisualCueClass, 
-                        @selector(setAimAngle:), 
-                        (IMP)hook_VisualCue_setAimAngle, 
-                        (IMP*)&orig_VisualCue_setAimAngle);
-    }
+        Class BallManagerClass = objc_getClass("BallManager");
+        if (BallManagerClass) {
+            MSHookMessageEx(BallManagerClass, @selector(getBallPositionForNumber:), (IMP)hook_BallManager_getBallPositionForNumber, (IMP*)&orig_BallManager_getBallPositionForNumber);
+        }
 
-    // BallManager Hook
-    Class BallManagerClass = objc_getClass("BallManager");
-    if (BallManagerClass) {
-        MSHookMessageEx(BallManagerClass, 
-                        @selector(getBallPositionForNumber:), 
-                        (IMP)hook_BallManager_getBallPositionForNumber, 
-                        (IMP*)&orig_BallManager_getBallPositionForNumber);
-    }
+        Class TableClass = objc_getClass("Table");
+        if (TableClass) {
+            MSHookMessageEx(TableClass, @selector(tableBounds), (IMP)hook_Table_tableBounds, (IMP*)&orig_Table_tableBounds);
+        }
 
-    // Table Hook
-    Class TableClass = objc_getClass("Table");
-    if (TableClass) {
-        MSHookMessageEx(TableClass, 
-                        @selector(tableBounds), 
-                        (IMP)hook_Table_tableBounds, 
-                        (IMP*)&orig_Table_tableBounds);
-    }
+        InitImGuiHook();
+    });
 }
