@@ -25,6 +25,10 @@ jobs:
           rm -rf ~/theos/sdks
           git clone --depth=1 https://github.com/theos/sdks.git ~/theos/sdks
 
+      - name: Fix Line Endings
+        run: |
+          tr -d '\r' < control > control.tmp && mv control.tmp control
+
       - name: Compile Dylib
         run: |
           export THEOS=~/theos
